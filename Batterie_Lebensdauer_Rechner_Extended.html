@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Batterie-Lebensdauer-Rechner (Temperatur)</title>
+<style>
+  :root{
+    --bg:#0e1116;
+    --panel:#161b22;
+    --panel-2:#1c232c;
+    --line:#2a323d;
+    --txt:#e6edf3;
+    --muted:#8b97a5;
+    --accent:#ff8c42;
+    --accent-dim:#5a3a22;
+    --green:#3fb950;
+    --red:#f85149;
+    --mono:'JetBrains Mono','Courier New',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--txt);
+    font-family:var(--mono);
+    line-height:1.5;
+    padding:24px 16px 60px;
+    background-image:
+      linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
+    background-size:28px 28px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  header{border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:8px;}
+  h1{font-size:1.35rem;font-weight:700;letter-spacing:-.5px;}
+  h1 .blk{color:var(--accent);}
+  .sub{color:var(--muted);font-size:.8rem;margin-top:4px;}
+  .formula{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    padding:10px 14px;margin:16px 0;
+    font-size:.95rem;text-align:center;
+  }
+  .formula b{color:var(--accent);}
+  .tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+  .tab{
+    flex:1 1 auto;background:var(--panel);border:1px solid var(--line);
+    color:var(--muted);padding:10px 8px;cursor:pointer;font-family:var(--mono);
+    font-size:.78rem;font-weight:700;transition:.15s;border-radius:5px;white-space:nowrap;
+  }
+  .tab.active{background:var(--panel-2);color:var(--accent);border-color:var(--accent);}
+  .panel{
+    background:var(--panel-2);border:1px solid var(--accent);
+    border-radius:6px;padding:22px;
+  }
+  .panel.hidden{display:none;}
+  .desc{color:var(--muted);font-size:.82rem;margin-bottom:18px;}
+  .field{margin-bottom:16px;}
+  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px;}
+  label .hint{color:var(--accent);}
+  input,select{
+    width:100%;background:var(--bg);border:1px solid var(--line);
+    color:var(--txt);font-family:var(--mono);font-size:1rem;
+    padding:11px 12px;border-radius:5px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--accent);}
+  .row{display:flex;gap:14px;}
+  .row .field{flex:1;}
+  .result{
+    margin-top:20px;padding:18px;background:var(--bg);
+    border:1px dashed var(--line);border-radius:6px;
+  }
+  .result .big{font-size:2rem;font-weight:700;color:var(--accent);}
+  .result .big small{font-size:1rem;color:var(--muted);font-weight:400;}
+  .result .lbl{font-size:.78rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;}
+  .breakdown{margin-top:14px;font-size:.8rem;color:var(--muted);}
+  .breakdown div{padding:3px 0;border-top:1px solid var(--line);}
+  .breakdown .factor{color:var(--txt);}
+  .warn{color:var(--red);}
+  .ok{color:var(--green);}
+  footer{margin-top:28px;font-size:.72rem;color:var(--muted);text-align:center;line-height:1.7;}
+  .pill{display:inline-block;background:var(--accent-dim);color:var(--accent);
+    padding:1px 8px;border-radius:10px;font-size:.72rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="blk">▮</span> Batterie-Lebensdauer-Rechner</h1>
+    <div class="sub">Temperaturabhängigkeit der Zyklenzahl · Blei VRLA (AGM/Gel) · Faustformel</div>
+  </header>
+
+  <div class="formula">
+    L(T) = L<sub>ref</sub> · <b>0,5<sup>(T − T<sub>ref</sub>) / H</sup></b>
+    &nbsp;·&nbsp; <span style="color:var(--muted);font-size:.8rem">Halbierung pro H °C über Referenz</span>
+  </div>
+
+  <div class="field">
+    <label>Halbierungs-Intervall H <span class="hint">(°C pro Halbierung – Faustformel-Variante)</span></label>
+    <select id="halflife">
+      <option value="7" selected>7 °C  (konservativ)</option>
+      <option value="8">8 °C  (häufige Variante)</option>
+      <option value="10">10 °C (optimistisch / Arrhenius-grob)</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Referenztemperatur T<sub>ref</sub> <span class="hint">(meist 25 °C laut Datenblatt)</span></label>
+    <input type="number" id="tref" value="25" step="0.5">
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-fwd" onclick="switchTab('fwd')">▶ Vorwärts</button>
+    <button class="tab" id="tab-rev" onclick="switchTab('rev')">◀ Rückwärts</button>
+    <button class="tab" id="tab-comb" onclick="switchTab('comb')">⊕ Kombiniert</button>
+    <button class="tab" id="tab-abs" onclick="switchTab('abs')">≈ Schätzen</button>
+    <button class="tab" id="tab-plan" onclick="switchTab('plan')">⏱ Testdauer</button>
+    <button class="tab" id="tab-volt" onclick="switchTab('volt')">⚡ Ladespg.</button>
+    <button class="tab" id="tab-kt" onclick="switchTab('kt')">🌡 Kapazität</button>
+    <button class="tab" id="tab-crate" onclick="switchTab('crate')">↻ C-Rate</button>
+  </div>
+
+  <!-- VORWÄRTS -->
+  <div class="panel" id="panel-fwd">
+    <div class="desc">Bekannt: Zyklen bei Referenztemperatur. Gesucht: Zyklen bei anderer (z.B. höherer) Temperatur.<br>
+      <span class="pill">Beispiel</span> „Datenblatt sagt 600 Zyklen bei 25 °C — wie viele bei 35 °C?“</div>
+    <div class="row">
+      <div class="field">
+        <label>Zyklen bei T<sub>ref</sub></label>
+        <input type="number" id="fwd-cycles" value="600" min="0">
+      </div>
+      <div class="field">
+        <label>Ziel-Temperatur (°C)</label>
+        <input type="number" id="fwd-temp" value="35" step="0.5">
+      </div>
+    </div>
+    <div class="result">
+      <div class="lbl">Erwartete Zyklen bei Ziel-Temperatur</div>
+      <div class="big" id="fwd-out">–</div>
+      <div class="breakdown" id="fwd-break"></div>
+    </div>
+  </div>
+
+  <!-- RÜCKWÄRTS -->
+  <div class="panel hidden" id="panel-rev">
+    <div class="desc">Bekannt: Zyklen bei einer (Test-)Temperatur. Gesucht: was das bei Referenztemperatur bedeutet.<br>
+      <span class="pill">Beispiel</span> „Test bei 40 °C lieferte 200 Zyklen — was entspricht das bei 25 °C?“</div>
+    <div class="row">
+      <div class="field">
+        <label>Gemessene Zyklen</label>
+        <input type="number" id="rev-cycles" value="200" min="0">
+      </div>
+      <div class="field">
+        <label>Test-Temperatur (°C)</label>
+        <input type="number" id="rev-temp" value="40" step="0.5">
+      </div>
+    </div>
+    <div class="result">
+      <div class="lbl">Äquivalente Zyklen bei T<sub>ref</sub></div>
+      <div class="big" id="rev-out">–</div>
+      <div class="breakdown" id="rev-break"></div>
+    </div>
+  </div>
+
+  <!-- KOMBINIERT -->
+  <div class="panel hidden" id="panel-comb">
+    <div class="desc">Grobe Schätzung des Zusammenspiels von <b>Entladetiefe (DoD)</b>, <b>Entladerate (C-Rate)</b> und <b>Temperatur</b>,
+      ausgehend von einem bekannten Datenblattwert.<br>
+      <span class="pill">Beispiel</span> „600 Zyklen bei 80% DoD / 2h / 25°C — was bei 70% DoD / 5h / 35°C?“</div>
+
+    <div class="field">
+      <label>Bekannte Zyklen (Ausgangsbasis)</label>
+      <input type="number" id="cb-cycles" value="600" min="0">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px;">
+      <div style="font-size:.78rem;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:4px;">AUSGANG (Datenblatt)</div>
+      <div style="font-size:.78rem;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:4px;">ZIEL (eure Bedingungen)</div>
+    </div>
+    <div class="row">
+      <div class="field"><label>DoD Ausgang (%)</label><input type="number" id="cb-dod1" value="80" min="1" max="100"></div>
+      <div class="field"><label>DoD Ziel (%)</label><input type="number" id="cb-dod2" value="70" min="1" max="100"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Entladedauer Ausgang (h)</label><input type="number" id="cb-rate1" value="2" min="0.1" step="0.1"></div>
+      <div class="field"><label>Entladedauer Ziel (h)</label><input type="number" id="cb-rate2" value="5" min="0.1" step="0.1"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Temp. Ausgang (°C)</label><input type="number" id="cb-t1" value="25" step="0.5"></div>
+      <div class="field"><label>Temp. Ziel (°C)</label><input type="number" id="cb-t2" value="35" step="0.5"></div>
+    </div>
+
+    <div class="result">
+      <div class="lbl">Geschätzte Zyklen bei Ziel-Bedingungen</div>
+      <div class="big" id="cb-out">–</div>
+      <div class="breakdown" id="cb-break"></div>
+    </div>
+    <div style="margin-top:14px;font-size:.74rem;color:var(--muted);border-left:2px solid var(--accent-dim);padding-left:10px;">
+      <b style="color:var(--accent)">Genauigkeit:</b> Temperatur folgt der belastbaren Faustformel.
+      DoD und C-Rate sind nur grobe Näherungen (modellhaft, nicht herstellerspezifisch) — der reale
+      Zusammenhang ist nichtlinear und je Batterietyp verschieden. Für belastbare Aussagen bleibt der Test maßgeblich;
+      dieser Modus dient der Größenordnung.
+    </div>
+  </div>
+
+  <!-- ABSOLUT SCHÄTZEN -->
+  <div class="panel hidden" id="panel-abs">
+    <div class="desc">Grobe <b>absolute</b> Schätzung der Zyklenzahl allein aus DoD, Entladerate und Temperatur —
+      ohne konkreten Datenblattwert. Verankert über eine Qualitätsklasse (oder eine eigene Referenz).<br>
+      <span class="pill warn">Achtung</span> Liefert nur Hausnummern. Reale Typen streuen stark.</div>
+
+    <div class="field">
+      <label>Qualitätsklasse (Gel VRLA) <span class="hint">setzt die Basis bei 50% DoD / 25°C</span></label>
+      <select id="ab-class">
+        <option value="400">Günstig / Standard  (~400 Zyklen @ 50% DoD)</option>
+        <option value="700" selected>Mittel / Deep-Cycle  (~700 Zyklen @ 50% DoD)</option>
+        <option value="1200">Premium / Langzyklen  (~1200 Zyklen @ 50% DoD)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Eigene Referenz überschreiben <span class="hint">(optional — Zyklen @ 50% DoD / 25°C; leer = Klasse nutzen)</span></label>
+      <input type="number" id="ab-ref" placeholder="z.B. 600" min="0">
+    </div>
+
+    <div class="row">
+      <div class="field"><label>DoD (%)</label><input type="number" id="ab-dod" value="70" min="1" max="100"></div>
+      <div class="field"><label>Entladedauer (h)</label><input type="number" id="ab-rate" value="5" min="0.1" step="0.1"></div>
+      <div class="field"><label>Temperatur (°C)</label><input type="number" id="ab-temp" value="35" step="0.5"></div>
+    </div>
+
+    <div class="result">
+      <div class="lbl">Geschätzte Zyklen (bis ~End-of-Life)</div>
+      <div class="big" id="ab-out">–</div>
+      <div class="breakdown" id="ab-break"></div>
+    </div>
+    <div style="margin-top:14px;font-size:.74rem;color:var(--muted);border-left:2px solid var(--accent-dim);padding-left:10px;">
+      <b style="color:var(--accent)">Bezug:</b> Basis gilt für 50% DoD / 2h-Rate / 25°C. DoD- und Raten-Skalierung sind
+      modellhafte Näherungen, die Temperatur folgt der Faustformel. Identischer DoD kann zwischen realen
+      Gel-Typen um Faktor 5–10 streuen — diese Schätzung ersetzt keinen Test, sie ordnet nur die Größenordnung ein.
+    </div>
+  </div>
+
+  <!-- TESTDAUER-PLANER -->
+  <div class="panel hidden" id="panel-plan">
+    <div class="desc">Wie lange läuft ein Zyklentest — und wie viel spart die erhöhte Prüftemperatur?<br>
+      <span class="pill">Beispiel</span> „300 Zyklen, 4h pro Zyklus, Test bei 40°C statt 25°C“</div>
+    <div class="row">
+      <div class="field"><label>Zu fahrende Zyklen</label><input type="number" id="pl-cyc" value="300" min="1"></div>
+      <div class="field"><label>Zeit pro Zyklus (h) <span class="hint">Laden+Entladen+Pause</span></label><input type="number" id="pl-tcyc" value="4" min="0.1" step="0.1"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Prüfplätze (parallel)</label><input type="number" id="pl-slots" value="1" min="1"></div>
+      <div class="field"><label>Auslastung (%) <span class="hint">realer Betrieb, z.B. 80</span></label><input type="number" id="pl-util" value="80" min="1" max="100"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Prüftemperatur (°C)</label><input type="number" id="pl-ttest" value="40" step="0.5"></div>
+      <div class="field"><label>Vergleichstemp. (°C) <span class="hint">z.B. Realbetrieb 25</span></label><input type="number" id="pl-tref" value="25" step="0.5"></div>
+    </div>
+    <div class="result">
+      <div class="lbl">Testdauer bei Prüftemperatur</div>
+      <div class="big" id="pl-out">–</div>
+      <div class="breakdown" id="pl-break"></div>
+    </div>
+  </div>
+
+  <!-- LADESPANNUNG (Temp.-Kompensation) -->
+  <div class="panel hidden" id="panel-volt">
+    <div class="desc">Temperaturkompensierte Ladespannung nach East-Penn-Vorgabe (3 mV/°C/Zelle).
+      Über 25°C absenken, darunter anheben.<br>
+      <span class="pill">Beispiel</span> „12V-Batterie bei 35°C — welche Float-Spannung?“</div>
+    <div class="row">
+      <div class="field"><label>Nennspannung</label>
+        <select id="vo-nom"><option value="12" selected>12 V (6 Zellen)</option><option value="6">6 V (3 Zellen)</option></select>
+      </div>
+      <div class="field"><label>Batterietemperatur (°C)</label><input type="number" id="vo-temp" value="35" step="0.5"></div>
+    </div>
+    <div class="field"><label>Sollspannung bei 25°C <span class="hint">z.B. Float 13,50 / Cycle 14,40</span></label>
+      <input type="number" id="vo-base" value="13.50" step="0.01"></div>
+    <div class="result">
+      <div class="lbl">Kompensierte Spannung bei Batterietemperatur</div>
+      <div class="big" id="vo-out">–</div>
+      <div class="breakdown" id="vo-break"></div>
+    </div>
+  </div>
+
+  <!-- KAPAZITÄTSKORREKTUR (Kt) -->
+  <div class="panel hidden" id="panel-kt">
+    <div class="desc">Kapazitäts-Temperaturkorrektur nach IEEE 1188 (Kt-Faktor, East-Penn Appendix F).
+      Rechnet gemessene Kapazität auf 25°C-Referenz um.<br>
+      <span class="pill">Beispiel</span> „bei 30°C gemessen — was entspricht das bei 25°C?“</div>
+    <div class="row">
+      <div class="field"><label>Gemessene Kapazität (% oder Ah)</label><input type="number" id="kt-meas" value="100" min="0" step="0.1"></div>
+      <div class="field"><label>Messtemperatur (°C)</label><input type="number" id="kt-temp" value="30" step="0.5"></div>
+    </div>
+    <div class="result">
+      <div class="lbl">Auf 25°C korrigierte Kapazität</div>
+      <div class="big" id="kt-out">–</div>
+      <div class="breakdown" id="kt-break"></div>
+    </div>
+    <div style="margin-top:14px;font-size:.74rem;color:var(--muted);border-left:2px solid var(--accent-dim);padding-left:10px;">
+      Kt-Stützpunkte aus East-Penn Appendix F (Discharges ≥ 1h), dazwischen linear interpoliert.
+      Korrigierte Kapazität = gemessen × Kt.
+    </div>
+  </div>
+
+  <!-- C-RATE UMRECHNER -->
+  <div class="panel hidden" id="panel-crate">
+    <div class="desc">Umrechnung zwischen C-Rate, Entladedauer und Strom.<br>
+      <span class="pill">Beispiel</span> „73,6 Ah bei C/5 — wie viel Ampere, wie viele Stunden?“</div>
+    <div class="row">
+      <div class="field"><label>Kapazität (Ah) <span class="hint">passend zur Rate</span></label><input type="number" id="cr-ah" value="73.6" min="0" step="0.1"></div>
+      <div class="field"><label>C-Rate (Std.) <span class="hint">z.B. 5 = C/5</span></label><input type="number" id="cr-rate" value="5" min="0.1" step="0.1"></div>
+    </div>
+    <div class="result">
+      <div class="lbl">Entladestrom</div>
+      <div class="big" id="cr-out">–</div>
+      <div class="breakdown" id="cr-break"></div>
+    </div>
+    <div style="margin-top:14px;font-size:.74rem;color:var(--muted);border-left:2px solid var(--accent-dim);padding-left:10px;">
+      Strom I = Kapazität ÷ Entladedauer. Hinweis: Die nutzbare Kapazität sinkt bei höheren Strömen
+      (Peukert) — für C/5 ist die Ah-Zahl kleiner als für C/20. Im M24-Datenblatt: C/20 = 73,6 Ah, C/5 = 63 Ah.
+    </div>
+  </div>
+
+  <footer>
+    Faustformel, keine exakte Naturkonstante — gilt näherungsweise für Blei VRLA (AGM/Gel), <b>nicht</b> für Lithium.<br>
+    Alter (kalendarische Lebensdauer) ist eine eigene, parallele Grenze und kein Faktor in der Zyklenformel — was zuerst eintritt, zählt.<br>
+    Für den relativen Vergleich mehrerer Batterien unter gleichen Bedingungen ist keine Umrechnung nötig.
+  </footer>
+</div>
+
+<script>
+  function getParams(){
+    return {
+      H: parseFloat(document.getElementById('halflife').value),
+      tref: parseFloat(document.getElementById('tref').value)
+    };
+  }
+
+  function fmt(n){
+    if(!isFinite(n)) return '–';
+    return Math.round(n).toLocaleString('de-DE');
+  }
+
+  function calcFwd(){
+    const {H,tref} = getParams();
+    const cyc = parseFloat(document.getElementById('fwd-cycles').value);
+    const t   = parseFloat(document.getElementById('fwd-temp').value);
+    const out = document.getElementById('fwd-out');
+    const brk = document.getElementById('fwd-break');
+    if([cyc,t,H,tref].some(isNaN)){ out.textContent='–'; brk.innerHTML=''; return; }
+    const dT = t - tref;
+    const factor = Math.pow(0.5, dT/H);
+    const res = cyc * factor;
+    const lo = res*0.85, hi = res*1.15;
+    out.innerHTML = fmt(res) + ' <small>Zyklen</small>';
+    const dir = dT>0 ? 'warn' : (dT<0?'ok':'');
+    brk.innerHTML =
+      `<div>ΔT = ${t} − ${tref} = <span class="factor ${dir}">${dT>0?'+':''}${dT.toFixed(1)} °C</span></div>`+
+      `<div>Faktor = 0,5^(${dT.toFixed(1)}/${H}) = <span class="factor">${factor.toFixed(3)}</span></div>`+
+      `<div>${fmt(cyc)} × ${factor.toFixed(3)} = <span class="factor">${fmt(res)}</span> Zyklen</div>`+
+      `<div>Bandbreite (±15%): <span class="factor">${fmt(lo)} – ${fmt(hi)}</span></div>`;
+  }
+
+  function calcRev(){
+    const {H,tref} = getParams();
+    const cyc = parseFloat(document.getElementById('rev-cycles').value);
+    const t   = parseFloat(document.getElementById('rev-temp').value);
+    const out = document.getElementById('rev-out');
+    const brk = document.getElementById('rev-break');
+    if([cyc,t,H,tref].some(isNaN)){ out.textContent='–'; brk.innerHTML=''; return; }
+    const dT = t - tref;
+    const factor = Math.pow(0.5, dT/H);   // factor angewandt auf tref->t
+    const res = cyc / factor;             // rückwärts: zurück auf tref
+    const lo = res*0.85, hi = res*1.15;
+    out.innerHTML = fmt(res) + ' <small>Zyklen</small>';
+    const dir = dT>0 ? 'ok' : (dT<0?'warn':'');
+    brk.innerHTML =
+      `<div>ΔT = ${t} − ${tref} = <span class="factor">${dT>0?'+':''}${dT.toFixed(1)} °C</span></div>`+
+      `<div>Faktor = 0,5^(${dT.toFixed(1)}/${H}) = <span class="factor">${factor.toFixed(3)}</span></div>`+
+      `<div>${fmt(cyc)} ÷ ${factor.toFixed(3)} = <span class="factor ${dir}">${fmt(res)}</span> Zyklen</div>`+
+      `<div>Bandbreite (±15%): <span class="factor">${fmt(lo)} – ${fmt(hi)}</span></div>`;
+  }
+
+  function calcComb(){
+    const {H,tref} = getParams();
+    const cyc  = parseFloat(document.getElementById('cb-cycles').value);
+    const dod1 = parseFloat(document.getElementById('cb-dod1').value);
+    const dod2 = parseFloat(document.getElementById('cb-dod2').value);
+    const r1   = parseFloat(document.getElementById('cb-rate1').value);
+    const r2   = parseFloat(document.getElementById('cb-rate2').value);
+    const t1   = parseFloat(document.getElementById('cb-t1').value);
+    const t2   = parseFloat(document.getElementById('cb-t2').value);
+    const out  = document.getElementById('cb-out');
+    const brk  = document.getElementById('cb-break');
+    if([cyc,dod1,dod2,r1,r2,t1,t2,H].some(isNaN)||dod1<=0||dod2<=0||r1<=0||r2<=0){
+      out.textContent='–'; brk.innerHTML=''; return;
+    }
+    // DoD-Faktor: grobes Modell. Geleistete Energie (Zyklen × DoD) tendenziell konstant
+    // -> Zyklen skalieren ~ umgekehrt proportional zur DoD. Mit Exponent 0.9 leicht gedämpft.
+    const fDoD = Math.pow(dod1/dod2, 0.9);
+    // C-Rate-Faktor: langsamer entladen (mehr Stunden) = schonender. Schwacher Effekt, Exponent 0.15.
+    const fRate = Math.pow(r2/r1, 0.15);
+    // Temperatur: belastbare Faustformel
+    const dT = t2 - t1;
+    const fTemp = Math.pow(0.5, dT/H);
+
+    const res = cyc * fDoD * fRate * fTemp;
+    const lo = res*0.75, hi = res*1.25;   // breitere Bandbreite, da Näherung
+    out.innerHTML = fmt(res) + ' <small>Zyklen</small>';
+
+    const cls = f => f>1.001?'ok':(f<0.999?'warn':'');
+    brk.innerHTML =
+      `<div>DoD ${dod1}% → ${dod2}% : <span class="factor ${cls(fDoD)}">×${fDoD.toFixed(2)}</span></div>`+
+      `<div>Rate ${r1}h → ${r2}h : <span class="factor ${cls(fRate)}">×${fRate.toFixed(2)}</span></div>`+
+      `<div>Temp ${t1}°C → ${t2}°C : <span class="factor ${cls(fTemp)}">×${fTemp.toFixed(2)}</span></div>`+
+      `<div>${fmt(cyc)} × ${fDoD.toFixed(2)} × ${fRate.toFixed(2)} × ${fTemp.toFixed(2)} = <span class="factor">${fmt(res)}</span></div>`+
+      `<div>Bandbreite (±25%): <span class="factor">${fmt(lo)} – ${fmt(hi)}</span></div>`;
+  }
+
+  function calcAbs(){
+    const {H} = getParams();
+    const cls = parseFloat(document.getElementById('ab-class').value);
+    const refRaw = document.getElementById('ab-ref').value.trim();
+    const ref = refRaw==='' ? cls : parseFloat(refRaw);
+    const dod  = parseFloat(document.getElementById('ab-dod').value);
+    const rate = parseFloat(document.getElementById('ab-rate').value);
+    const t    = parseFloat(document.getElementById('ab-temp').value);
+    const out  = document.getElementById('ab-out');
+    const brk  = document.getElementById('ab-break');
+    if([ref,dod,rate,t,H].some(isNaN)||dod<=0||rate<=0){ out.textContent='–'; brk.innerHTML=''; return; }
+
+    // Basis-Annahmen der Referenz: 50% DoD, 2h-Rate, 25°C
+    const BASE_DOD=50, BASE_RATE=2, BASE_T=25;
+    const fDoD  = Math.pow(BASE_DOD/dod, 0.9);
+    const fRate = Math.pow(rate/BASE_RATE, 0.15);
+    const dT = t - BASE_T;
+    const fTemp = Math.pow(0.5, dT/H);
+
+    const res = ref * fDoD * fRate * fTemp;
+    const lo = res*0.6, hi = res*1.6;   // sehr breit: absolute Schätzung
+    out.innerHTML = fmt(res) + ' <small>Zyklen</small>';
+    const usingOwn = refRaw!=='';
+    const cl = f => f>1.001?'ok':(f<0.999?'warn':'');
+    brk.innerHTML =
+      `<div>Basis: <span class="factor">${fmt(ref)}</span> Zyklen ${usingOwn?'(eigene Referenz)':'(Klasse)'} @ 50% DoD / 2h / 25°C</div>`+
+      `<div>DoD 50% → ${dod}% : <span class="factor ${cl(fDoD)}">×${fDoD.toFixed(2)}</span></div>`+
+      `<div>Rate 2h → ${rate}h : <span class="factor ${cl(fRate)}">×${fRate.toFixed(2)}</span></div>`+
+      `<div>Temp 25°C → ${t}°C : <span class="factor ${cl(fTemp)}">×${fTemp.toFixed(2)}</span></div>`+
+      `<div>Realistische Bandbreite: <span class="factor">${fmt(lo)} – ${fmt(hi)}</span></div>`;
+  }
+
+  // --- Testdauer-Planer ---
+  function calcPlan(){
+    const {H} = getParams();
+    const cyc=parseFloat(document.getElementById('pl-cyc').value);
+    const tc =parseFloat(document.getElementById('pl-tcyc').value);
+    const slots=parseFloat(document.getElementById('pl-slots').value);
+    const util=parseFloat(document.getElementById('pl-util').value);
+    const tt =parseFloat(document.getElementById('pl-ttest').value);
+    const tr =parseFloat(document.getElementById('pl-tref').value);
+    const out=document.getElementById('pl-out'), brk=document.getElementById('pl-break');
+    if([cyc,tc,slots,util,tt,tr,H].some(isNaN)||slots<=0||util<=0){out.textContent='–';brk.innerHTML='';return;}
+    const totalHrs = cyc*tc/util*100;            // Brutto-Stunden für eine Batterie, mit Auslastung
+    const days = totalHrs/24;
+    const months = days/30.4;
+    // Zeitersparnis durch Temperatur: bei tt altert schneller -> bei tr bräuchte man mehr Zyklen
+    const accel = Math.pow(0.5,(tr-tt)/H);        // >1 wenn tt>tr
+    out.innerHTML = months>=1.5 ? (months.toFixed(1)+' <small>Monate</small>') : (days.toFixed(0)+' <small>Tage</small>');
+    let html =
+      `<div>Reine Zyklenzeit: <span class="factor">${fmt(cyc*tc)} h</span> (${cyc}×${tc}h)</div>`+
+      `<div>mit ${util}% Auslastung: <span class="factor">${fmt(totalHrs)} h ≈ ${days.toFixed(0)} Tage</span></div>`;
+    if(slots>1) html += `<div>Bei ${slots} Prüfplätzen (Batterien parallel): pro Platz gleich lang; ${slots}× so viele Batterien gleichzeitig testbar</div>`;
+    if(Math.abs(tt-tr)>0.1){
+      html += `<div class="${tt>tr?'ok':'warn'}">Temperatur-Effekt: ${tt}°C altert ${accel.toFixed(2)}× ${tt>tr?'schneller':'langsamer'} als ${tr}°C</div>`+
+              `<div>→ Äquivalent zu <span class="factor">${fmt(cyc*accel)}</span> Zyklen bei ${tr}°C; bei ${tr}°C-Test wären es <span class="factor">${(months*accel).toFixed(1)} Monate</span></div>`;
+    }
+    brk.innerHTML = html;
+  }
+
+  // --- Ladespannung Temp.-Kompensation ---
+  function calcVolt(){
+    const nom=parseFloat(document.getElementById('vo-nom').value);
+    const t  =parseFloat(document.getElementById('vo-temp').value);
+    const base=parseFloat(document.getElementById('vo-base').value);
+    const out=document.getElementById('vo-out'), brk=document.getElementById('vo-break');
+    if([nom,t,base].some(isNaN)){out.textContent='–';brk.innerHTML='';return;}
+    const cells = nom/2;                       // 2V pro Zelle
+    const comp = 0.003*cells*(t-25);           // 3mV/°C/Zelle, über 25 absenken
+    const res = base - comp;
+    out.innerHTML = res.toFixed(2) + ' <small>V</small>';
+    brk.innerHTML =
+      `<div>${cells} Zellen × 3 mV/°C = <span class="factor">${(0.003*cells*1000).toFixed(0)} mV/°C</span></div>`+
+      `<div>ΔT = ${(t-25).toFixed(1)} °C → Korrektur <span class="factor ${t>25?'warn':'ok'}">${comp>=0?'−':'+'}${Math.abs(comp).toFixed(3)} V</span></div>`+
+      `<div>${base.toFixed(2)} V ${comp>=0?'−':'+'} ${Math.abs(comp).toFixed(3)} = <span class="factor">${res.toFixed(2)} V</span></div>`;
+  }
+
+  // --- Kt Kapazitätskorrektur (IEEE 1188, East Penn App. F Stützpunkte) ---
+  const KT=[[16,1.074],[17,1.064],[18,1.047],[19,1.038],[20,1.034],[21,1.026],[22,1.019],[23,1.013],[24,1.006],[25,1.000],[26,0.994],[27,0.988],[28,0.982],[29,0.977],[30,0.971],[31,0.966],[32,0.962],[33,0.965],[34,0.963],[35,0.962]];
+  function ktFactor(t){
+    if(t<=KT[0][0]) return KT[0][1];
+    if(t>=KT[KT.length-1][0]) return KT[KT.length-1][1];
+    for(let i=0;i<KT.length-1;i++){
+      if(t>=KT[i][0]&&t<=KT[i+1][0]){
+        const [t0,k0]=KT[i],[t1,k1]=KT[i+1];
+        return k0+(k1-k0)*(t-t0)/(t1-t0);
+      }
+    }
+    return 1;
+  }
+  function calcKt(){
+    const m=parseFloat(document.getElementById('kt-meas').value);
+    const t=parseFloat(document.getElementById('kt-temp').value);
+    const out=document.getElementById('kt-out'), brk=document.getElementById('kt-break');
+    if([m,t].some(isNaN)){out.textContent='–';brk.innerHTML='';return;}
+    const kt=ktFactor(t);
+    const res=m*kt;
+    out.innerHTML = res.toFixed(1) + ' <small>(korrigiert)</small>';
+    brk.innerHTML =
+      `<div>Kt bei ${t}°C = <span class="factor">${kt.toFixed(3)}</span></div>`+
+      `<div>${m} × ${kt.toFixed(3)} = <span class="factor">${res.toFixed(1)}</span></div>`+
+      (t>25?`<div class="warn">Bei >25°C liefert die Batterie scheinbar mehr — korrigiert wird nach unten.</div>`:
+       t<25?`<div class="ok">Bei <25°C liefert die Batterie scheinbar weniger — korrigiert wird nach oben.</div>`:'');
+  }
+
+  // --- C-Rate Umrechner ---
+  function calcCrate(){
+    const ah=parseFloat(document.getElementById('cr-ah').value);
+    const r =parseFloat(document.getElementById('cr-rate').value);
+    const out=document.getElementById('cr-out'), brk=document.getElementById('cr-break');
+    if([ah,r].some(isNaN)||r<=0){out.textContent='–';brk.innerHTML='';return;}
+    const I=ah/r;
+    out.innerHTML = I.toFixed(1) + ' <small>A</small>';
+    brk.innerHTML =
+      `<div>I = ${ah} Ah ÷ ${r} h = <span class="factor">${I.toFixed(1)} A</span></div>`+
+      `<div>Entspricht Rate <span class="factor">C/${r}</span> über <span class="factor">${r} h</span></div>`+
+      `<div>Gesamt entnommen: <span class="factor">${ah} Ah</span></div>`;
+  }
+
+  function calcAll(){ calcFwd(); calcRev(); calcComb(); calcAbs(); calcPlan(); calcVolt(); calcKt(); calcCrate(); }
+
+  function switchTab(which){
+    ['fwd','rev','comb','abs','plan','volt','kt','crate'].forEach(k=>{
+      document.getElementById('tab-'+k).classList.toggle('active',which===k);
+      document.getElementById('panel-'+k).classList.toggle('hidden',which!==k);
+    });
+  }
+
+  document.querySelectorAll('input,select').forEach(el=>{
+    el.addEventListener('input',calcAll);
+  });
+  calcAll();
+</script>
+</body>
+</html>
