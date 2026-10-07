@@ -75,4 +75,4 @@ Alle Eingaben werden live ausgewertet. Jedes Modul zeigt den Rechenweg und eine 
 
 ## Lizenz
 
-MIT — Nutzung, Anpassung und Weitergabe frei. Verwendung auf eigene Verantwortung; das Tool ersetzt keine fachliche Prüfung.
+[MIT](LICENSE). Verwendung auf eigene Verantwortung; das Tool ersetzt keine fachliche Prüfung.
