@@ -1,78 +1,105 @@
-# Batterie-Lebensdauer-Rechner (Blei VRLA)
+# Lead battery life calculator (VRLA)
 
-**🔗 Live-Demo:** <https://technikweber.github.io/lead-battery-calculator/>
+<p>
+  <a href="https://technikweber.github.io/lead-battery-calculator/"><img alt="Live demo" src="https://img.shields.io/badge/live%20demo-open-brightgreen"></a>
+  <img alt="Single HTML file, offline" src="https://img.shields.io/badge/single%20HTML%20file-offline-blue">
+  <img alt="UI language: German" src="https://img.shields.io/badge/UI-Deutsch-informational">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
+</p>
 
-Ein eigenständiges HTML-Tool zur Planung, Auswertung und Plausibilisierung von Tests an Blei-VRLA-Batterien (AGM/Gel). Eine einzige Datei, keine Installation, läuft offline in jedem modernen Browser.
+A self-contained HTML tool for planning, evaluating and sanity-checking tests on lead-acid
+VRLA batteries (AGM/gel). One file, nothing to install, runs offline in any modern browser.
 
-## Hintergrund
+👉 **[Open the calculator](https://technikweber.github.io/lead-battery-calculator/)**
 
-Die Lebensdauer von Blei-Batterien hängt massiv von Betriebs- und Prüfbedingungen ab. Datenblattangaben gelten typischerweise für 25 °C — Norm-Prüfungen nach IEC 60254-1 laufen dagegen bei 33–43 °C, was Zyklenzahlen scheinbar drastisch reduziert (Faustformel: Halbierung der Lebensdauer je ~7 °C über 25 °C).
+## Background
 
-Wer im Labor Batterien gegeneinander testet, vergleicht außerdem ständig zwischen:
+The life of lead-acid batteries depends heavily on operating and test conditions. Data
+sheet values usually apply at 25 °C — standard tests to IEC 60254-1, on the other hand, run
+at 33–43 °C, which seemingly cuts cycle counts drastically (rule of thumb: life halves for
+every ~7 °C above 25 °C).
 
-- 25-°C-Marketingwerten
-- 40-°C-IEC-Compliance-Werten
-- den eigenen Prüfbedingungen
+Whoever tests batteries against each other in the lab also keeps comparing between:
 
-Hier hilft das Tool: Es macht die einschlägigen Formeln (Faustformel, IEC-λ-Korrektur, East-Penn-Temperaturkompensation, IEEE-1188-Kt-Faktoren) direkt im Browser anwendbar.
+- 25 °C marketing values
+- 40 °C IEC compliance values
+- their own test conditions
 
-## Funktionsumfang
+This is where the tool helps: it makes the relevant formulas (rule of thumb, IEC λ
+correction, East Penn temperature compensation, IEEE 1188 Kt factors) usable directly in
+the browser.
 
-Zwölf Module, gruppiert nach Aufgabe:
+## What it does
 
-### Lebensdauer / Zyklenzahl
+Twelve modules, grouped by task:
 
-- **▶ Vorwärts** — Datenblattwert (25 °C) auf Ziel-Temperatur umrechnen. Optional inkl. Effekt einer nicht abgesenkten Ladespannung.
-- **◀ Rückwärts** — Testwert bei erhöhter Temperatur auf 25-°C-Äquivalent zurückrechnen.
-- **⊕ Kombiniert** — DoD, C-Rate und Temperatur gleichzeitig variieren, ausgehend von einem bekannten Datenblattwert.
-- **≈ Schätzen** — absolute Schätzung ohne Datenblatt, verankert über Qualitätsklasse oder eigene Referenz.
+### Life / cycle count
 
-### Test- und Auswertungshilfen
+- **▶ Forward** — convert a data sheet value (25 °C) to a target temperature. Optionally
+  including the effect of a charge voltage that is not lowered.
+- **◀ Backward** — convert a test value at elevated temperature back to its 25 °C equivalent.
+- **⊕ Combined** — vary depth of discharge, C-rate and temperature at the same time,
+  starting from a known data sheet value.
+- **≈ Estimate** — absolute estimate without a data sheet, anchored on a quality class or
+  your own reference.
 
-- **⏱ Testdauer** — Zyklen × Zeit/Zyklus + Auslastung → Testdauer. Zeigt direkt die Zeitersparnis durch erhöhte Prüftemperatur.
-- **⚡ Ladespannung** — temperaturkompensierte Ladespannung nach East-Penn (3 mV/°C/Zelle).
-- **🌡 Kapazität (Kt)** — Kapazitätskorrektur nach IEEE 1188 (East-Penn Appendix F, dazwischen interpoliert).
-- **↻ C-Rate** — Umrechnung Ah / Stunden / Ampere.
+### Test and evaluation aids
 
-### Speziell für ISO 7176-25 / IEC 60254-1
+- **⏱ Test duration** — cycles × time per cycle + utilisation → test duration. Shows the time
+  saved by a higher test temperature directly.
+- **⚡ Charge voltage** — temperature-compensated charge voltage according to East Penn
+  (3 mV/°C/cell).
+- **🌡 Capacity (Kt)** — capacity correction according to IEEE 1188 (East Penn appendix F,
+  interpolated in between).
+- **↻ C-rate** — conversion between Ah, hours and amperes.
 
-- **λ Kapazität (IEC)** — IEC-60254-1-Kapazitätskorrektur `Ca = C / [1 + λ₁(t₀−tr)]` (λ₁ = 0,006/°C bei 5h-Entladung).
-- **⚠ Ladespg-Check** — Vergleicht normativ vorgegebene Ladespannung mit kompensiertem Soll und schätzt den Schadensfaktor durch Überladung (Stromverdopplung je 0,05 V/Zelle).
-- **✓ Akzeptanz** — Prüft Ca gegen alle CN-Kriterien (≥0,85·CN bei Zyklus 1, ≥1,00·CN bis Zyklus 10, Abbruch <0,80·CN, ≥300 Zyklen).
-- **⏲ Prüfzeit ISO** — Hochrechnung mit 50-Zyklen-Serien und Messzeit-Overhead.
+### Specifically for ISO 7176-25 / IEC 60254-1
 
-## Benutzung
+- **λ Capacity (IEC)** — IEC 60254-1 capacity correction `Ca = C / [1 + λ₁(t₀−tr)]`
+  (λ₁ = 0.006/°C for a 5 h discharge).
+- **⚠ Charge voltage check** — compares the charge voltage prescribed by the standard with
+  the compensated target and estimates the damage factor from overcharging (current doubles
+  per 0.05 V/cell).
+- **✓ Acceptance** — checks Ca against all CN criteria (≥ 0.85·CN at cycle 1, ≥ 1.00·CN by
+  cycle 10, stop below 0.80·CN, ≥ 300 cycles).
+- **⏲ ISO test time** — projection with 50-cycle series and measurement overhead.
 
-1. `Batterie_Lebensdauer_Rechner.html` herunterladen
-2. Datei im Browser öffnen (Doppelklick reicht)
-3. Oben Halbierungs-Intervall und Referenztemperatur einstellen, Reiter wählen, rechnen
+## How to use it
 
-Alle Eingaben werden live ausgewertet. Jedes Modul zeigt den Rechenweg und eine Bandbreite, damit der Charakter als Näherung sichtbar bleibt.
+Open the [live version](https://technikweber.github.io/lead-battery-calculator/), or
+download `index.html` and open it in a browser (double-click is enough). At the top, set
+the halving interval and reference temperature, choose a tab, calculate.
 
-## Formel-Grundlagen
+All inputs are evaluated live. Every module shows the calculation and a range, so that it
+stays visible that these are approximations. The interface is in German.
 
-| Modul | Quelle |
+## Formula sources
+
+| Module | Source |
 |---|---|
-| Temperatur-Faustformel | Arrhenius-Vereinfachung, Battery University, EMSYS |
-| Temperaturkompensation Ladespannung | East-Penn `8A & 8G Battery Installation Instructions`, Appendix B |
-| Kt-Faktoren | IEEE 1188-2005, East-Penn Appendix F |
-| λ-Kapazitätskorrektur | IEC 60254-1 |
-| Akzeptanzkriterien | ISO 7176-25:2013, IEC 60254-1 Section 5.5 |
-| Überladungs-Modell | Multitel, EMSYS (Stromverdopplung je +0,05 V/Zelle bzw. +10 °C) |
+| Temperature rule of thumb | Arrhenius simplification, Battery University, EMSYS |
+| Charge voltage temperature compensation | East Penn *8A & 8G Battery Installation Instructions*, appendix B |
+| Kt factors | IEEE 1188-2005, East Penn appendix F |
+| λ capacity correction | IEC 60254-1 |
+| Acceptance criteria | ISO 7176-25:2013, IEC 60254-1 section 5.5 |
+| Overcharge model | Multitel, EMSYS (current doubles per +0.05 V/cell or +10 °C) |
 
-## Einschränkungen
+## Limitations
 
-- Faustformeln sind Näherungen, keine exakten Naturkonstanten — Zellentyp und Hersteller beeinflussen die tatsächlichen Werte.
-- Für den relativen Vergleich mehrerer Batterien unter identischen Bedingungen ist keine Umrechnung nötig — das Tool ersetzt keinen Test, es ordnet ein.
-- Gilt für Blei-VRLA (AGM/Gel). Für Lithium-Ionen siehe das separate Schwestertool.
-- Kalendarische Alterung ist eine eigene, parallele Lebensdauergrenze und nicht Bestandteil der Zyklenformeln.
+- Rules of thumb are approximations, not exact constants of nature — cell type and
+  manufacturer affect the real values.
+- For a relative comparison of several batteries under identical conditions, no conversion
+  is needed — the tool does not replace a test, it puts results into context.
+- Applies to lead-acid VRLA (AGM/gel). For lithium-ion see the sister tool
+  [liion-cell-calculator](https://github.com/TechnikWeber/liion-cell-calculator).
+- Calendar ageing is a separate, parallel life limit and not part of the cycle formulas.
 
-## Technik
+## Technology
 
-- Eine einzige HTML-Datei (~30 KB)
-- Vanilla JavaScript, kein Build, keine Abhängigkeiten
-- Kein Tracking, keine externen Calls — vollständig offline lauffähig
+- One HTML file (~30 KB)
+- Vanilla JavaScript, no build, no dependencies
+- No tracking, no external calls — runs fully offline
 
-## Lizenz
+## License
 
-[MIT](LICENSE). Verwendung auf eigene Verantwortung; das Tool ersetzt keine fachliche Prüfung.
+[MIT](LICENSE). Use at your own risk; the tool does not replace a professional review.
