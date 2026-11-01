@@ -12,6 +12,8 @@ VRLA batteries (AGM/gel). One file, nothing to install, runs offline in any mode
 
 👉 **[Open the calculator](https://technikweber.github.io/lead-battery-calculator/)**
 
+![Battery life calculator: 600 cycles at 25 °C give about 223 cycles at 35 °C, with the calculation steps](docs/screenshot.png)
+
 ## Background
 
 The life of lead-acid batteries depends heavily on operating and test conditions. Data
