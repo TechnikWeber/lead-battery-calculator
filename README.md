@@ -7,10 +7,13 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
+<p>
+  <a href="https://technikweber.github.io/lead-battery-calculator/"><b>Open the calculator</b></a> &nbsp;·&nbsp;
+  <a href="#background"><b>Background</b></a>
+</p>
+
 A self-contained HTML tool for planning, evaluating and sanity-checking tests on lead-acid
 VRLA batteries (AGM/gel). One file, nothing to install, runs offline in any modern browser.
-
-👉 **[Open the calculator](https://technikweber.github.io/lead-battery-calculator/)**
 
 ![Battery life calculator: 600 cycles at 25 °C give about 223 cycles at 35 °C, with the calculation steps](docs/screenshot.png)
 
